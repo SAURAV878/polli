@@ -32,15 +32,20 @@ Base URL: `http://localhost:1000/api`
 - `nationality`: string, required, max 40, trimmed
 - `email`: string, required, unique, max 40, trimmed
 - `password`: string, required, min 6 (stored hashed)
+- `language`: array containing supported codes (`de`, `fr`, `en`, `es`, `it`, `pt`, `ja`, `ko`, `zh`, `ar`), default `["de"]`
 - `level`: string, default `A1`, max 20
 
 ### Data Types (Progress)
 - `userId`: ObjectId, required, ref `User`
-- `streak`: number, default 0
-- `hours`: number, default 0
-- `lessons`: number, default 0
+- `language`: string, one of the supported language codes
+- `totalTime`: number of seconds practiced during the week
+- `dailyTime`: array of `{ day, seconds }` entries for the week
+- `streakDate`: dates on which at least 180 seconds were practiced
+- `streak`: number of streak-qualified days in the week, max 7
+- `completedLesson`: lesson IDs such as `A1_1`
 - `accuracy`: number, default 0, range 0-1
-- `vocab`: number, default 0
+- `lastExercise`: exercise ID such as `A1_2`
+- `weekStart`: UTC Monday starting the weekly record
 
 ### Endpoints
 #### `POST /register`
@@ -52,7 +57,8 @@ Request body:
   "name": "string",
   "nationality": "string",
   "email": "string",
-  "password": "string"
+  "password": "string",
+  "language": ["de"]
 }
 ```
 
@@ -60,7 +66,12 @@ Status codes: `201` success, `400` validation, `409` user exists, `500` server e
 
 Success response:
 ```json
-{ "success": true, "message": "user created successfully" }
+{
+  "success": true,
+  "message": "user created successfully",
+  "token": "jwt-string",
+  "user": { "id": "string", "email": "string", "name": "string", "language": ["de"] }
+}
 ```
 
 #### `POST /login`
@@ -84,6 +95,14 @@ Success response:
   "token": "jwt-string",
   "user": { "id": "string", "email": "string", "name": "string" }
 }
+```
+
+#### `POST /logout`
+Clear the authentication cookie and end the current session.
+
+Success response:
+```json
+{ "success": true, "message": "logout successfully" }
 ```
 
 #### `PUT /profile` (protected)
@@ -123,6 +142,7 @@ Success response:
     "email": "string",
     "name": "string",
     "nationality": "string",
+    "language": ["de"],
     "level": "string"
   }
 }
@@ -138,11 +158,15 @@ Success response:
   "progress": {
     "id": "string",
     "userId": "string",
+    "language": "de",
+    "totalTime": 0,
+    "dailyTime": [],
+    "streakDate": [],
     "streak": 0,
-    "hours": 0,
-    "lessons": 0,
+    "completedLesson": [],
     "accuracy": 0.0,
-    "vocab": 0
+    "lastExercise": null,
+    "weekStart": "date"
   }
 }
 ```
@@ -150,14 +174,17 @@ Success response:
 #### `PUT /progress` (protected)
 Update current user progress (partial updates supported).
 
-Request body (any of these fields):
+Request body (any of these fields; `language` may also be passed as a query parameter):
 ```json
 {
+  "language": "de",
+  "totalTime": 900,
+  "dailyTime": [{ "day": "mon", "seconds": 180 }],
+  "streakDate": ["date"],
   "streak": 5,
-  "hours": 2.5,
-  "lessons": 12,
+  "completedLesson": ["A1_1"],
   "accuracy": 0.92,
-  "vocab": 320
+  "lastExercise": "A1_2"
 }
 ```
 
@@ -168,11 +195,15 @@ Success response:
   "progress": {
     "id": "string",
     "userId": "string",
+    "language": "de",
+    "totalTime": 900,
+    "dailyTime": [{ "day": "mon", "seconds": 180 }],
+    "streakDate": ["date"],
     "streak": 5,
-    "hours": 2.5,
-    "lessons": 12,
+    "completedLesson": ["A1_1"],
     "accuracy": 0.92,
-    "vocab": 320
+    "lastExercise": "A1_2",
+    "weekStart": "date"
   }
 }
 ```
