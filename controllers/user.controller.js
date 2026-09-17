@@ -2,8 +2,25 @@ import User from "../models/user.model.js";
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
+const supportedLanguages = ["de", "fr", "en", "es", "it", "pt", "ja", "ko", "zh", "ar"];
+
+const normalizeLanguages = (value, fallback = ["de"]) => {
+    const values = value === undefined
+        ? fallback
+        : Array.isArray(value)
+            ? value
+            : [value];
+
+    if (!values.length || values.some((language) => !supportedLanguages.includes(language))) {
+        return null;
+    }
+
+    return [...new Set(values)];
+};
+
 export const register = async (req,res) => {
-    const { name, nationality, email, password } = req.body;
+    const { name, nationality, email, password, language } = req.body;
+    const languages = normalizeLanguages(language);
 
     //check any field is empty
     //check the user with email exists or not
@@ -19,6 +36,13 @@ export const register = async (req,res) => {
         })
 }
 
+    if (!languages) {
+        return res.status(400).json({
+            success: false,
+            message: "language contains an unsupported code"
+        });
+    }
+
   
     try {
         const existingUser = await User.findOne({ email: email});
@@ -31,16 +55,36 @@ export const register = async (req,res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        await User.create({
+        const user = await User.create({
             name,
             nationality,
             email: email,
             password: hashedPassword,
+            language: languages,
         })
+
+        const token = jwt.sign(
+            { id: user._id.toString(), email: user.email, name: user.name },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        res.cookie("token", token, {
+            httpOnly: true,
+            expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        });
 
         return res.status(201).json({
             "success": true,
-            "message":"user created successfully"
+            "message":"user created successfully",
+            token,
+            user: {
+                id: user._id.toString(),
+                email: user.email,
+                name: user.name,
+                language: user.language,
+                level: user.level,
+            }
         })
     } catch (err) {
         console.log(err);
@@ -105,6 +149,8 @@ export const login = async (req, res) => {
             id: user._id.toString(),
           email: user.email,
           name: user.name,
+          language: user.language,
+          level: user.level,
             }
       })
     } catch (err) {
@@ -116,13 +162,24 @@ export const login = async (req, res) => {
     }
 }
 
-export const updateProfile = async (req, res) => {
-    const { name, password } = req.body;
+export const logout = (req, res) => {
+    res.clearCookie("token", {
+        httpOnly: true,
+    });
 
-    if (!name && !password) {
+    return res.status(200).json({
+        success: true,
+        message: "logout successfully",
+    });
+};
+
+export const updateProfile = async (req, res) => {
+    const { name, password, language } = req.body;
+
+    if (!name && !password && language === undefined) {
         return res.status(400).json({
             "success": false,
-            "message": "name or password is required"
+            "message": "name, password, or language is required"
         });
     }
 
@@ -136,13 +193,23 @@ export const updateProfile = async (req, res) => {
     const updates = {};
     if (name) updates.name = name;
     if (password) updates.password = await bcrypt.hash(password, 10);
+    if (language !== undefined) {
+        const languages = normalizeLanguages(language, []);
+        if (!languages) {
+            return res.status(400).json({
+                success: false,
+                message: "language contains an unsupported code"
+            });
+        }
+        updates.language = languages;
+    }
 
     try {
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
             updates,
             { new: true, runValidators: true }
-        ).select("name email");
+        ).select("name email language");
 
         if (!updatedUser) {
             return res.status(404).json({
@@ -157,7 +224,8 @@ export const updateProfile = async (req, res) => {
             user: {
                 id: updatedUser._id.toString(),
                 email: updatedUser.email,
-                name: updatedUser.name
+                name: updatedUser.name,
+                language: updatedUser.language
             }
         })
     } catch (err) {
@@ -171,7 +239,7 @@ export const updateProfile = async (req, res) => {
 
 export const getProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select("name email nationality level");
+        const user = await User.findById(req.user.id).select("name email nationality language level");
 
         if (!user) {
             return res.status(404).json({
@@ -188,6 +256,7 @@ export const getProfile = async (req, res) => {
                 email: user.email,
                 name: user.name,
                 nationality: user.nationality,
+                language: user.language,
                 level: user.level
             }
         })
