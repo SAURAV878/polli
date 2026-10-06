@@ -12,7 +12,27 @@ Create a `.env` file:
 ```
 MONGODB_URI=mongodb://127.0.0.1:27017/polli
 JWT_SECRET=replace-with-strong-secret
+EMAIL_PROVIDER=brevo
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=your-brevo-smtp-login
+SMTP_PASSWORD=your-brevo-smtp-key
+SMTP_FROM=verified-sender@example.com
 ```
+
+Password reset email uses Brevo SMTP when `EMAIL_PROVIDER=brevo`. Get the SMTP login and SMTP key from Brevo's **Settings → SMTP & API** page; don't use the Brevo API key or account password. Verify the sender address in Brevo and set that exact address as `SMTP_FROM`. The SMTP host is `smtp-relay.brevo.com` and port `587` is recommended. Keep credentials only in this server's `.env`. You can select Twilio SendGrid instead with `EMAIL_PROVIDER=sendgrid`, `SENDGRID_API_KEY`, and `SENDGRID_FROM_EMAIL`.
+
+Password reset sends a six-digit code that expires after 10 minutes. Restart the Express API after editing `.env`.
+
+## Admin account
+
+Public registration always creates a learner account. To promote an existing Polli account, run this from `polli/` after confirming the email address:
+
+```
+npm run make-admin -- account@example.com
+```
+
+The command updates the `role` field in the Polli database; it does not use MongoDB's built-in `admin` database. The promoted user must sign out and sign in again so the login token includes the admin role. Admin-only API handlers can use `isAuthenticated` followed by `requireAdmin` from `middleware/authMiddleware.js`.
 
 ## Run
 ```
@@ -21,7 +41,7 @@ npm run dev
 ```
 
 ## API
-Base URL: `http://localhost:1000/api`
+Base URL: `http://localhost:3001/api`
 
 ### Authentication
 - Login sets an `httpOnly` cookie named `token`.
@@ -108,11 +128,11 @@ Success response:
 #### `PUT /profile` (protected)
 Update current user profile.
 
-Request body (at least one field):
+Request body (at least one field; password changes use `PUT /change-password`):
 ```json
 {
   "name": "string",
-  "password": "string"
+  "language": ["de", "fr"]
 }
 ```
 
@@ -126,6 +146,19 @@ Success response:
   "user": { "id": "string", "email": "string", "name": "string" }
 }
 ```
+
+#### `PUT /change-password` (protected)
+Change the signed-in user's password after verifying the current password.
+
+Request body:
+```json
+{
+  "currentPassword": "string",
+  "newPassword": "string"
+}
+```
+
+The new password must contain at least 6 characters. An incorrect current password returns `401`.
 
 #### `GET /fetch-profile` (protected)
 Fetch current user profile.

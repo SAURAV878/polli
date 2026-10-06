@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
             required: true,
             unique: true,
             trim: true,
+            lowercase: true,
             maxlength: 40,
         },
         password: {
@@ -26,6 +27,31 @@ const userSchema = new mongoose.Schema(
             required: true,
             select: false,
             minlength:[6,"password must be greater that 6 chracter"],
+        },
+        passwordResetTokenHash: {
+            type: String,
+            select: false,
+        },
+        passwordResetExpires: {
+            type: Date,
+            select: false,
+        },
+        passwordResetCodeHash: {
+            type: String,
+            select: false,
+        },
+        passwordResetCodeExpires: {
+            type: Date,
+            select: false,
+        },
+        passwordResetCodeAttempts: {
+            type: Number,
+            default: 0,
+            select: false,
+        },
+        passwordResetCodeRequestedAt: {
+            type: Date,
+            select: false,
         },
 
         language: {
@@ -41,6 +67,12 @@ const userSchema = new mongoose.Schema(
             trim: true,
             maxlength: 20,
             default:'A1'
+        },
+        role: {
+            type: String,
+            enum: ["learner", "admin"],
+            default: "learner",
+            required: true,
         },
 
     },

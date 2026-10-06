@@ -41,7 +41,7 @@ Polli already has a content model organized by level, unit, and exercise mode. T
 ## 5. Non-goals for the initial release
 
 - Live tutoring, social learning, or multiplayer features.
-- Speech recognition or pronunciation scoring.
+- Pronunciation scoring beyond comparing recognized text with the target sentence.
 - AI-generated teaching or chat responses. The current chat is a local scripted reply experience.
 - Full CEFR coverage before the associated lessons and assessments exist.
 - Payments, subscriptions, or certificates.
